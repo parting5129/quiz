@@ -267,33 +267,8 @@ textarea{resize:vertical;min-height:60px;}
 </head>
 <body>
 
-<!-- ══════════ CONFIG SCREEN ══════════ -->
-<div id="s-config" class="screen on pad col" style="gap:1.5rem;max-width:660px;margin:0 auto;width:100%;">
-  <div class="logo" style="margin-top:1rem;">📸 사진 퀴즈 <em>라이브</em></div>
-  <div class="card col" style="gap:1rem;">
-    <h2 class="sec">⚡ Supabase 연결 설정</h2>
-    <p style="font-size:13px;color:var(--muted);line-height:1.7;">실시간 채팅과 멀티 참여를 위해 Supabase 프로젝트가 필요해요.<br>아래 3단계만 따라하면 <strong style="color:var(--accent);">5분 안에 완료</strong>돼요! (완전 무료)</p>
-
-    <div style="border-top:1px solid var(--border);padding-top:1rem;">
-      <div class="step-row"><div class="step-badge">1</div><div class="step-text"><strong>Supabase 프로젝트 만들기</strong><p>→ <span style="color:var(--blue)">supabase.com</span> 접속 → GitHub 로그인 → "New project" → 이름·비밀번호·리전(Seoul) 입력 → 생성</p></div></div>
-      <div class="step-row"><div class="step-badge">2</div><div class="step-text"><strong>SQL 한 번 실행해서 테이블 만들기</strong><p>→ 왼쪽 메뉴 "SQL Editor" → 아래 코드 그대로 복붙 → Run</p><div class="code-box" style="font-family:monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;">create table rooms (code text primary key, data jsonb not null default '{}'::jsonb, updated_at timestamptz default now());
-alter table rooms enable row level security;
-create policy "all" on rooms for all using (true) with check (true);
-alter publication supabase_realtime add table rooms;</div></div></div>
-      <div class="step-row"><div class="step-badge">3</div><div class="step-text"><strong>API 키 복사</strong><p>→ ⚙️ Settings → API → <strong style="color:var(--accent);">Project URL</strong>과 <strong style="color:var(--accent);">anon public 키</strong>를 아래에 붙여넣기</p></div></div>
-    </div>
-
-    <div class="config-fields">
-      <div><label>Project URL</label><input id="cfg-url" type="text" placeholder="https://xxxxx.supabase.co"></div>
-      <div><label>anon public Key</label><input id="cfg-key" type="text" placeholder="eyJhbGc..."></div>
-    </div>
-    <button class="btn y full" onclick="saveConfig()">연결 확인 →</button>
-  </div>
-  <p style="font-size:12px;color:var(--muted);text-align:center;">설정값은 이 기기에만 저장돼요. 한 번 설정하면 다음부턴 자동으로 연결됩니다.</p>
-</div>
-
 <!-- ══════════ ROLE SELECT ══════════ -->
-<div id="s-role" class="screen center pad" style="gap:2rem;">
+<div id="s-role" class="screen on center pad" style="gap:2rem;">
   <div class="logo">📸 사진 퀴즈 <em>라이브</em></div>
   <div class="role-cards">
     <div class="role-card" onclick="goHost()">
@@ -307,7 +282,6 @@ alter publication supabase_realtime add table rooms;</div></div></div>
       <p>방 코드를 입력하고<br>게임에 참여해요</p>
     </div>
   </div>
-  <button class="btn ghost" style="font-size:12px;" onclick="showScreen('s-config')">Supabase 재설정</button>
 </div>
 
 <!-- ══════════ HOST SETUP ══════════ -->
@@ -560,75 +534,42 @@ function showScreen(id) {
 }
 
 // ──────────────────────────────────────────────
-// CONFIG
+// SUPABASE 설정 (하드코딩)
 // ──────────────────────────────────────────────
+const SUPABASE_CFG = {
+  url: 'https://ikdkdbzbiuvxzrtlcmco.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrZGtkYnpiaXV2eHpydGxjbWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTMzNDAsImV4cCI6MjA5MzY2OTM0MH0.i8LgsSynCeMy0rriUd1xO0RvfP_nJfMMRFQq43q2CJc',
+};
+
 window.addEventListener('DOMContentLoaded', () => {
-  // URL 파라미터로 초대 링크 통한 자동 입장 처리
+  // URL에 ?r=방코드 있으면 참가자, 없으면 진행자/일반 입장
   const urlParams = new URLSearchParams(window.location.search);
-  const joinCfg = urlParams.get('j');
   const joinRoomCode = urlParams.get('r');
-
-  if (joinCfg) {
-    // 참가자: 진행자가 보낸 초대 링크로 들어옴
-    try {
-      const cfg = JSON.parse(atob(joinCfg.replace(/-/g, '+').replace(/_/g, '/')));
-      if (cfg && cfg.url && cfg.key) {
-        S._autoJoinRoom = (joinRoomCode || '').toUpperCase();
-        S._autoJoinAsPlayer = true;
-        initSupabase(cfg);
-        return;
-      }
-    } catch(e) {
-      console.warn('초대 링크 파싱 실패', e);
-    }
+  if (joinRoomCode) {
+    S._autoJoinRoom = joinRoomCode.toUpperCase();
+    S._autoJoinAsPlayer = true;
   }
-
-  const saved = loadConfig();
-  if (saved) { initSupabase(saved); return; }
-  showScreen('s-config');
-  buildPhotoSlots();
+  initSupabase(SUPABASE_CFG);
 });
 
-function loadConfig() {
-  try {
-    const c = JSON.parse(localStorage.getItem('pqz_cfg_sb') || 'null');
-    if (c && c.url && c.key) return c;
-  } catch(e) {}
-  return null;
-}
-
-function saveConfig() {
-  const cfg = {
-    url: v('cfg-url').replace(/\/+$/, ''),
-    key: v('cfg-key').trim(),
-  };
-  if (!cfg.url || !cfg.key) { toast('모든 항목을 입력해주세요'); return; }
-  if (!cfg.url.startsWith('http')) { toast('Project URL은 https://로 시작해야 해요'); return; }
-  localStorage.setItem('pqz_cfg_sb', JSON.stringify(cfg));
-  initSupabase(cfg);
-}
-
 function initSupabase(cfg) {
-  showLoading('Supabase 연결 중...');
+  showLoading('연결 중...');
   try {
     S.sb = supabase.createClient(cfg.url, cfg.key, {
       realtime: { params: { eventsPerSecond: 20 } },
     });
-    // 연결 테스트: rooms 테이블에 가벼운 쿼리
+    // 연결 테스트
     S.sb.from('rooms').select('code').limit(1).then(({ error }) => {
       hideLoading();
       if (error) {
-        toast('연결 실패: ' + (error.message || '확인 필요'));
-        showScreen('s-config');
+        toast('연결 실패: ' + (error.message || '관리자에게 문의해주세요'));
         return;
       }
       buildPhotoSlots();
       if (S._autoJoinAsPlayer) {
         S._autoJoinAsPlayer = false;
-        if (S._autoJoinRoom) {
-          const codeInput = document.getElementById('join-code');
-          if (codeInput) codeInput.value = S._autoJoinRoom;
-        }
+        const codeInput = document.getElementById('join-code');
+        if (codeInput) codeInput.value = S._autoJoinRoom || '';
         showScreen('s-join');
         setTimeout(() => {
           const nameInput = document.getElementById('join-name');
@@ -640,8 +581,7 @@ function initSupabase(cfg) {
     });
   } catch(e) {
     hideLoading();
-    toast('설정 오류: ' + e.message);
-    showScreen('s-config');
+    toast('연결 오류: ' + e.message);
   }
 }
 
@@ -850,14 +790,8 @@ function makeRoomRef(roomCode) {
 // INVITE LINK / QR / SHARE
 // ──────────────────────────────────────────────
 function buildInviteLink(roomCode) {
-  const cfg = loadConfig();
-  if (!cfg) return null;
-  // base64url 인코딩 (URL 안전)
-  const json = JSON.stringify(cfg);
-  const b64 = btoa(unescape(encodeURIComponent(json)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const base = window.location.origin + window.location.pathname;
-  return `${base}?j=${b64}&r=${roomCode}`;
+  return `${base}?r=${roomCode}`;
 }
 
 function renderInviteQR(roomCode) {
