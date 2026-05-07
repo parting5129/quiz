@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📸 사진 퀴즈 라이브</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+:root {
+  --bg: #0a0a18;
+  --surf: #13132a;
+  --surf2: #1c1c36;
+  --surf3: #242442;
+  --accent: #f0c040;
+  --red: #e05a5a;
+  --blue: #5ab4f0;
+  --green: #50c878;
+  --text: #f0eee8;
+  --muted: #7070a0;
+  --border: rgba(255,255,255,0.07);
+  --r: 12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+.screen{display:none;min-height:100vh;}
+.screen.on{display:flex;flex-direction:column;}
+/* ── TYPOGRAPHY ── */
+.logo{font-family:'Black Han Sans',sans-serif;font-size:clamp(1.8rem,4vw,3rem);color:var(--accent);text-align:center;letter-spacing:-1px;}
+.logo em{color:var(--text);font-style:normal;}
+h2.sec{font-size:.75rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:.75rem;}
+/* ── LAYOUT HELPERS ── */
+.center{align-items:center;justify-content:center;}
+.pad{padding:1.5rem;}
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem;}
+.row{display:flex;gap:8px;align-items:center;}
+.col{display:flex;flex-direction:column;gap:8px;}
+/* ── INPUTS ── */
+input[type=text],input[type=password],textarea,select{
+  background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 14px;color:var(--text);font-family:'Noto Sans KR',sans-serif;
+  font-size:14px;outline:none;transition:border-color .2s;width:100%;
+}
+input:focus,textarea:focus{border-color:var(--accent);}
+textarea{resize:vertical;min-height:60px;}
+/* ── BUTTONS ── */
+.btn{padding:10px 18px;border-radius:8px;border:none;font-family:'Noto Sans KR',sans-serif;
+  font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;white-space:nowrap;}
+.btn:hover{opacity:.85;}.btn:active{transform:scale(.97);}
+.btn.y{background:var(--accent);color:#000;}
+.btn.g{background:var(--green);color:#000;}
+.btn.r{background:var(--red);color:#fff;}
+.btn.b{background:var(--blue);color:#000;}
+.btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn.ghost:hover{background:var(--surf2);}
+.btn.full{width:100%;padding:13px;font-size:1rem;border-radius:var(--r);margin-top:.25rem;}
+/* ── CONFIG SCREEN ── */
+#s-config{padding:2rem;gap:1.5rem;max-width:640px;margin:0 auto;width:100%;}
+.step-badge{display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;background:var(--accent);color:#000;
+  font-weight:700;font-size:12px;flex-shrink:0;}
+.step-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;}
+.step-text p{font-size:14px;color:var(--muted);margin-top:4px;line-height:1.6;}
+.code-box{background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 14px;font-family:monospace;font-size:12px;color:var(--blue);
+  margin-top:8px;word-break:break-all;}
+.config-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.config-fields input{font-size:12px;padding:8px 10px;}
+.config-fields label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;}
+/* ── ROLE SCREEN ── */
+#s-role{gap:2rem;padding:2rem;}
+.role-cards{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;}
+.role-card{background:var(--surf);border:2px solid var(--border);border-radius:var(--r);
+  padding:2rem 2.5rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;
+  flex:1;min-width:200px;max-width:260px;}
+.role-card:hover{border-color:var(--accent);background:var(--surf2);}
+.role-card .icon{font-size:3rem;margin-bottom:1rem;}
+.role-card h3{font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--accent);}
+.role-card p{font-size:13px;color:var(--muted);margin-top:.5rem;}
+/* ── HOST SETUP ── */
+#s-host-setup{padding:1.5rem;gap:1rem;max-width:900px;margin:0 auto;width:100%;}
+.room-code-box{font-family:'Black Han Sans',sans-serif;font-size:2.5rem;
+  color:var(--accent);letter-spacing:.5rem;text-align:center;padding:1rem;}
+.photo-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.photo-slot{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
+  border:2px dashed var(--border);cursor:pointer;background:var(--surf2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:border-color .2s;}
+.photo-slot:hover{border-color:var(--accent);}
+.photo-slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.photo-slot .slot-num{font-family:'Black Han Sans',sans-serif;font-size:1.5rem;color:var(--muted);}
+.photo-slot .slot-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+.photo-slot .slot-check{position:absolute;top:6px;right:6px;width:20px;height:20px;
+  border-radius:50%;background:var(--green);display:none;align-items:center;justify-content:center;
+  font-size:11px;color:#000;}
+.photo-slot.filled .slot-check{display:flex;}
+.photo-slot .slot-answer{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);
+  font-size:11px;color:var(--accent);padding:4px 6px;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.photo-slot input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+/* photo edit modal */
+#photo-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;
+  align-items:center;justify-content:center;}
+#photo-modal.on{display:flex;}
+#photo-modal-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);
+  padding:1.5rem;width:360px;display:flex;flex-direction:column;gap:12px;}
+/* ── HOST GAME ── */
+#s-host-game{flex-direction:row;height:100vh;overflow:hidden;}
+#hg-main{flex:1;display:flex;flex-direction:column;padding:1rem;gap:.75rem;overflow:hidden;}
+#hg-header{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.photo-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;flex-shrink:0;}
+.photo-thumb{width:52px;height:40px;border-radius:6px;border:2px solid var(--border);
+  object-fit:cover;cursor:pointer;transition:border-color .2s;flex-shrink:0;
+  background:var(--surf2);}
+.photo-thumb.active{border-color:var(--accent);}
+.photo-thumb.done{border-color:var(--green);opacity:.7;}
+.photo-thumb.empty{display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--muted);}
+#hg-photo-wrap{flex:1;position:relative;overflow:hidden;border-radius:var(--r);min-height:0;}
+#hg-photo{width:100%;height:100%;object-fit:contain;background:#000;border-radius:var(--r);}
+#hg-grid{position:absolute;inset:0;display:grid;border-radius:var(--r);overflow:hidden;}
+.tile{background:#1a1a3e;border:1px solid rgba(255,255,255,.03);cursor:pointer;
+  transition:opacity .35s ease,transform .35s ease;}
+.tile:hover:not(.on){background:#252558;}
+.tile.on{opacity:0;transform:scale(.85);pointer-events:none;}
+#hg-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0;}
+#hg-progress{height:4px;flex:1;background:var(--surf2);border-radius:2px;overflow:hidden;}
+#hg-bar{height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:2px;}
+/* ── SIDEBAR ── */
+#hg-side{width:300px;background:var(--surf);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;}
+.side-tabs{display:flex;border-bottom:1px solid var(--border);}
+.side-tab{flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;
+  cursor:pointer;color:var(--muted);transition:color .2s;border-bottom:2px solid transparent;}
+.side-tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+.side-pane{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.side-pane.on{display:flex;}
+/* Scoreboard */
+#score-list{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:6px;}
+.score-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+  background:var(--surf2);border:1px solid transparent;}
+.score-row.flash-g{animation:flashG .5s;}
+.score-row.flash-r{animation:flashR .5s;}
+@keyframes flashG{0%{background:rgba(80,200,120,.3);}100%{background:var(--surf2);}}
+@keyframes flashR{0%{background:rgba(224,90,90,.3);}100%{background:var(--surf2);}}
+.rank-dot{width:22px;height:22px;border-radius:50%;background:var(--surf);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--muted);flex-shrink:0;}
+.rank-dot.r1{background:var(--accent);color:#000;}
+.rank-dot.r2{background:#aaa;color:#000;}
+.rank-dot.r3{background:#cd7f32;color:#fff;}
+.sname{flex:1;font-size:14px;font-weight:500;}
+.sscore{font-size:12px;color:var(--muted);}
+.sbtn-wrap{display:flex;gap:4px;}
+.sbtn{width:26px;height:26px;border-radius:50%;border:1px solid var(--border);
+  background:transparent;color:var(--text);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.sbtn.p:hover{background:rgba(80,200,120,.3);color:var(--green);}
+.sbtn.m:hover{background:rgba(224,90,90,.3);color:var(--red);}
+/* Chat */
+#chat-feed{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:6px;}
+.chat-msg{display:flex;gap:8px;align-items:flex-start;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.chat-avatar{width:28px;height:28px;border-radius:50%;background:var(--surf3);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
+  flex-shrink:0;color:var(--accent);}
+.chat-body .cname{font-size:11px;color:var(--muted);margin-bottom:2px;}
+.chat-body .ctext{font-size:13px;background:var(--surf2);border-radius:8px;
+  padding:7px 10px;display:inline-block;max-width:200px;word-break:break-all;line-height:1.5;}
+.chat-body .ctext.host-msg{background:rgba(240,192,64,.15);color:var(--accent);}
+.chat-system{font-size:12px;color:var(--muted);text-align:center;padding:4px 0;}
+#host-chat-input{display:flex;gap:6px;padding:.75rem;border-top:1px solid var(--border);flex-shrink:0;}
+#host-chat-input input{flex:1;font-size:13px;padding:8px 10px;}
+/* answer reveal */
+#ans-panel{padding:.75rem;border-top:1px solid var(--border);flex-shrink:0;}
+#ans-val{font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--accent);
+  min-height:28px;letter-spacing:1px;}
+/* ── PARTICIPANT JOIN ── */
+#s-join{gap:1.5rem;padding:2rem;max-width:400px;margin:0 auto;width:100%;}
+#s-join .logo{margin-bottom:.5rem;}
+/* ── PARTICIPANT GAME ── */
+#s-player-game{flex-direction:row;height:100vh;overflow:hidden;}
+#pg-main{flex:1;display:flex;flex-direction:column;padding:1rem;gap:.75rem;overflow:hidden;}
+#pg-header{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+#pg-photo-wrap{flex:1;position:relative;overflow:hidden;border-radius:var(--r);min-height:0;}
+#pg-photo{width:100%;height:100%;object-fit:contain;background:#000;border-radius:var(--r);}
+#pg-grid{position:absolute;inset:0;display:grid;border-radius:var(--r);overflow:hidden;}
+#pg-side{width:280px;background:var(--surf);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;}
+#pg-chat-feed{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:6px;}
+#pg-chat-input{display:flex;gap:6px;padding:.75rem;border-top:1px solid var(--border);flex-shrink:0;}
+#pg-chat-input input{flex:1;font-size:14px;padding:9px 12px;}
+#pg-score-panel{padding:.75rem;border-top:1px solid var(--border);flex-shrink:0;}
+#pg-score-panel .my-score{font-family:'Black Han Sans',sans-serif;font-size:1.8rem;color:var(--accent);}
+/* ── VOTING SCREEN ── */
+#s-voting{padding:1.5rem;gap:1rem;max-width:900px;margin:0 auto;width:100%;}
+#s-voting.on{display:block;overflow-y:auto;}
+.vote-title{font-family:'Black Han Sans',sans-serif;font-size:1.8rem;color:var(--accent);margin-bottom:.5rem;}
+.vote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:1rem;}
+.vote-photo{position:relative;aspect-ratio:4/3;border-radius:var(--r);overflow:hidden;
+  cursor:pointer;border:3px solid var(--border);transition:border-color .2s;background:var(--surf2);}
+.vote-photo img{width:100%;height:100%;object-fit:cover;}
+.vote-photo .vote-badge{position:absolute;top:6px;left:6px;border-radius:20px;
+  font-family:'Black Han Sans',sans-serif;font-size:13px;padding:3px 10px;display:none;}
+.vote-photo.v1 .vote-badge{display:block;background:var(--accent);color:#000;}
+.vote-photo.v2 .vote-badge{display:block;background:#aaa;color:#000;}
+.vote-photo.v3 .vote-badge{display:block;background:#cd7f32;color:#fff;}
+.vote-photo.v1{border-color:var(--accent);}
+.vote-photo.v2{border-color:#aaa;}
+.vote-photo.v3{border-color:#cd7f32;}
+.vote-num{position:absolute;bottom:6px;right:8px;font-family:'Black Han Sans',sans-serif;
+  font-size:1.2rem;color:rgba(255,255,255,.5);}
+.vote-hint{font-size:12px;color:var(--muted);margin-top:.5rem;}
+#vote-status{padding:1rem;background:var(--surf);border-radius:var(--r);font-size:14px;
+  color:var(--muted);margin-top:1rem;}
+/* ── RESULTS ── */
+#s-results{padding:2rem;gap:1.5rem;max-width:900px;margin:0 auto;width:100%;}
+#s-results.on{display:block;overflow-y:auto;}
+.results-title{font-family:'Black Han Sans',sans-serif;font-size:2rem;color:var(--accent);
+  text-align:center;margin-bottom:1rem;}
+.podium-wrap{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin:1rem 0;}
+.podium-col{text-align:center;flex:1;max-width:180px;}
+.podium-block{border-radius:8px 8px 0 0;display:flex;align-items:flex-end;
+  justify-content:center;padding-bottom:14px;font-family:'Black Han Sans',sans-serif;font-size:2rem;}
+.pb1{height:180px;background:var(--accent);color:#000;}
+.pb2{height:130px;background:#aaa;color:#000;}
+.pb3{height:100px;background:#cd7f32;color:#fff;}
+.podium-name{font-size:15px;font-weight:700;margin-top:8px;}
+.podium-score{font-size:13px;color:var(--muted);}
+.result-table{background:var(--surf);border-radius:var(--r);overflow:hidden;margin-top:1rem;}
+.result-row{display:flex;align-items:center;gap:12px;padding:12px 1rem;
+  border-bottom:1px solid var(--border);font-size:14px;}
+.result-row:last-child{border-bottom:none;}
+.result-rank{width:32px;font-weight:700;color:var(--muted);}
+.result-thumb{width:48px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0;}
+.result-name{flex:1;font-weight:500;}
+.result-val{font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--accent);}
+/* ── LOADING / TOAST ── */
+#loading{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;
+  align-items:center;justify-content:center;flex-direction:column;gap:1rem;}
+#loading.on{display:flex;}
+#loading p{color:var(--accent);font-weight:700;}
+.spinner{width:40px;height:40px;border:3px solid var(--surf2);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--accent);color:#000;padding:10px 22px;border-radius:30px;
+  font-weight:700;font-size:14px;z-index:999;transition:transform .3s;pointer-events:none;}
+#toast.on{transform:translateX(-50%) translateY(0);}
+.score-float{position:fixed;font-family:'Black Han Sans',sans-serif;font-size:1.4rem;
+  color:var(--green);pointer-events:none;animation:floatUp 1s ease forwards;z-index:999;}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(-40px);}}
+/* ── WAITING ── */
+#s-waiting{gap:1.5rem;padding:2rem;}
+#s-waiting .big-code{font-family:'Black Han Sans',sans-serif;font-size:3.5rem;
+  color:var(--accent);letter-spacing:.8rem;text-align:center;padding:1rem 0;}
+#player-join-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.join-chip{background:var(--surf2);border:1px solid var(--border);border-radius:20px;
+  padding:6px 14px;font-size:14px;animation:popIn .2s ease;}
+@keyframes popIn{from{transform:scale(.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+/* ── MISC ── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--surf3);border-radius:2px;}
+#phase-chip{font-size:11px;padding:4px 10px;border-radius:12px;background:var(--surf2);
+  color:var(--muted);font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+</style>
+</head>
+<body>
+
+<!-- ══════════ CONFIG SCREEN ══════════ -->
+<div id="s-config" class="screen on pad col" style="gap:1.5rem;max-width:660px;margin:0 auto;width:100%;">
+  <div class="logo" style="margin-top:1rem;">📸 사진 퀴즈 <em>라이브</em></div>
+  <div class="card col" style="gap:1rem;">
+    <h2 class="sec">⚡ Supabase 연결 설정</h2>
+    <p style="font-size:13px;color:var(--muted);line-height:1.7;">실시간 채팅과 멀티 참여를 위해 Supabase 프로젝트가 필요해요.<br>아래 3단계만 따라하면 <strong style="color:var(--accent);">5분 안에 완료</strong>돼요! (완전 무료)</p>
+
+    <div style="border-top:1px solid var(--border);padding-top:1rem;">
+      <div class="step-row"><div class="step-badge">1</div><div class="step-text"><strong>Supabase 프로젝트 만들기</strong><p>→ <span style="color:var(--blue)">supabase.com</span> 접속 → GitHub 로그인 → "New project" → 이름·비밀번호·리전(Seoul) 입력 → 생성</p></div></div>
+      <div class="step-row"><div class="step-badge">2</div><div class="step-text"><strong>SQL 한 번 실행해서 테이블 만들기</strong><p>→ 왼쪽 메뉴 "SQL Editor" → 아래 코드 그대로 복붙 → Run</p><div class="code-box" style="font-family:monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;">create table rooms (code text primary key, data jsonb not null default '{}'::jsonb, updated_at timestamptz default now());
+alter table rooms enable row level security;
+create policy "all" on rooms for all using (true) with check (true);
+alter publication supabase_realtime add table rooms;</div></div></div>
+      <div class="step-row"><div class="step-badge">3</div><div class="step-text"><strong>API 키 복사</strong><p>→ ⚙️ Settings → API → <strong style="color:var(--accent);">Project URL</strong>과 <strong style="color:var(--accent);">anon public 키</strong>를 아래에 붙여넣기</p></div></div>
+    </div>
+
+    <div class="config-fields">
+      <div><label>Project URL</label><input id="cfg-url" type="text" placeholder="https://xxxxx.supabase.co"></div>
+      <div><label>anon public Key</label><input id="cfg-key" type="text" placeholder="eyJhbGc..."></div>
+    </div>
+    <button class="btn y full" onclick="saveConfig()">연결 확인 →</button>
+  </div>
+  <p style="font-size:12px;color:var(--muted);text-align:center;">설정값은 이 기기에만 저장돼요. 한 번 설정하면 다음부턴 자동으로 연결됩니다.</p>
+</div>
+
+<!-- ══════════ ROLE SELECT ══════════ -->
+<div id="s-role" class="screen center pad" style="gap:2rem;">
+  <div class="logo">📸 사진 퀴즈 <em>라이브</em></div>
+  <div class="role-cards">
+    <div class="role-card" onclick="goHost()">
+      <div class="icon">🎮</div>
+      <h3>진행자</h3>
+      <p>사진을 업로드하고<br>게임을 진행해요</p>
+    </div>
+    <div class="role-card" onclick="goJoin()">
+      <div class="icon">🙋</div>
+      <h3>참여자</h3>
+      <p>방 코드를 입력하고<br>게임에 참여해요</p>
+    </div>
+  </div>
+  <button class="btn ghost" style="font-size:12px;" onclick="showScreen('s-config')">Supabase 재설정</button>
+</div>
+
+<!-- ══════════ HOST SETUP ══════════ -->
+<div id="s-host-setup" class="screen pad col" style="gap:1rem;max-width:900px;margin:0 auto;width:100%;overflow-y:auto;">
+  <div class="row" style="justify-content:space-between;">
+    <div class="logo" style="font-size:1.5rem;">진행자 설정</div>
+    <button class="btn ghost" onclick="showScreen('s-role')">← 뒤로</button>
+  </div>
+
+  <div class="card col" style="gap:.75rem;">
+    <h2 class="sec">방 코드 (참여자에게 알려주세요)</h2>
+    <div class="room-code-box" id="room-code-display">----</div>
+    <div class="row" style="gap:8px;">
+      <input type="text" id="room-code-input" placeholder="직접 입력 (영문+숫자 4자)" maxlength="6" style="text-transform:uppercase;letter-spacing:2px;">
+      <button class="btn ghost" onclick="genRoomCode()">랜덤 생성</button>
+    </div>
+  </div>
+
+  <div class="card col" style="gap:.75rem;">
+    <h2 class="sec">사진 10장 업로드 (클릭하여 추가)</h2>
+    <div class="photo-slots" id="photo-slots"></div>
+  </div>
+
+  <div class="card col" style="gap:.75rem;">
+    <h2 class="sec">게임 설정</h2>
+    <div class="row" style="gap:1.5rem;flex-wrap:wrap;">
+      <div class="row" style="gap:8px;">
+        <label style="font-size:13px;color:var(--muted);">그리드 크기</label>
+        <input type="range" id="grid-slider" min="3" max="9" value="6" style="accent-color:var(--accent);width:100px;" oninput="document.getElementById('grid-label').textContent=this.value+'×'+this.value">
+        <span id="grid-label" style="color:var(--accent);font-weight:700;min-width:36px;">6×6</span>
+      </div>
+      <div class="row" style="gap:8px;">
+        <label style="font-size:13px;color:var(--muted);">자동 공개 속도</label>
+        <input type="range" id="speed-slider" min="300" max="3000" value="1000" step="100" style="accent-color:var(--accent);width:100px;" oninput="document.getElementById('speed-label').textContent=(this.value/1000).toFixed(1)+'초'">
+        <span id="speed-label" style="color:var(--accent);font-weight:700;min-width:36px;">1.0초</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn y full" style="font-size:1rem;" onclick="createRoom()">🚀 게임 방 열기</button>
+</div>
+
+<!-- Photo Edit Modal -->
+<div id="photo-modal">
+  <div id="photo-modal-box">
+    <h3 style="font-family:'Black Han Sans',sans-serif;color:var(--accent);">사진 <span id="pm-num"></span>번 설정</h3>
+    <div style="position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:var(--surf2);cursor:pointer;" onclick="document.getElementById('pm-file').click()">
+      <img id="pm-preview" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+      <div id="pm-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;">클릭하여 사진 선택</div>
+      <input type="file" id="pm-file" accept="image/*" style="display:none;" onchange="handlePhotoFile(event)">
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">정답 (선택)</label>
+      <input type="text" id="pm-answer" placeholder="예: 에펠탑">
+    </div>
+    <div class="row" style="gap:8px;">
+      <button class="btn y" style="flex:1;" onclick="savePhotoSlot()">저장</button>
+      <button class="btn ghost" style="flex:1;" onclick="closePhotoModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ HOST WAITING ══════════ -->
+<div id="s-waiting" class="screen center pad col">
+  <div class="logo">방 대기 중...</div>
+  <div class="card col" style="gap:1rem;text-align:center;min-width:320px;max-width:420px;">
+    <p style="font-size:13px;color:var(--muted);">참여자에게 QR 또는 링크를 보내세요</p>
+    <div id="invite-qr-wrap" style="background:#fff;padding:12px;border-radius:8px;display:flex;justify-content:center;align-items:center;min-height:240px;">
+      <canvas id="invite-qr"></canvas>
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">방 코드</div>
+    <div class="big-code" id="wait-code">----</div>
+    <div class="row" style="gap:6px;">
+      <button class="btn y" style="flex:1;font-size:13px;" onclick="copyInviteLink()">🔗 링크 복사</button>
+      <button class="btn b" style="flex:1;font-size:13px;" onclick="shareInviteLink()">📤 공유</button>
+    </div>
+    <div id="player-join-list"></div>
+    <p id="join-count" style="font-size:12px;color:var(--muted);">아직 아무도 없어요</p>
+  </div>
+  <button class="btn y" style="min-width:200px;font-size:1rem;" onclick="startRound(0)">🎮 게임 시작!</button>
+</div>
+
+<!-- ══════════ HOST GAME ══════════ -->
+<div id="s-host-game" class="screen">
+  <div id="hg-main">
+    <div id="hg-header">
+      <span id="hg-round-lbl" style="font-family:'Black Han Sans',sans-serif;color:var(--accent);font-size:1.1rem;">사진 1/10</span>
+      <div id="hg-progress"><div id="hg-bar"></div></div>
+      <span id="hg-pct" style="font-size:12px;color:var(--muted);min-width:36px;text-align:right;">0%</span>
+      <span id="phase-chip">PLAYING</span>
+    </div>
+    <div class="photo-nav" id="hg-nav"></div>
+    <div id="hg-photo-wrap">
+      <img id="hg-photo" src="" alt="">
+      <div id="hg-grid"></div>
+    </div>
+    <div id="hg-controls">
+      <button class="btn y" onclick="revealOneTile()">▶ 타일 1개</button>
+      <button class="btn b" id="btn-auto" onclick="toggleAuto()">⏩ 자동 공개</button>
+      <button class="btn ghost" onclick="revealAllTiles()">전부 공개</button>
+      <button class="btn ghost" onclick="prevPhoto()" id="btn-prev">← 이전</button>
+      <button class="btn g" onclick="nextPhoto()" id="btn-next">다음 사진 →</button>
+      <button class="btn r" style="margin-left:auto;" onclick="goVoting()">🗳️ 투표로 이동</button>
+    </div>
+  </div>
+  <div id="hg-side">
+    <div class="side-tabs">
+      <div class="side-tab on" id="tab-score" onclick="switchTab('score')">스코어</div>
+      <div class="side-tab" id="tab-chat" onclick="switchTab('chat')">채팅 <span id="chat-badge" style="font-size:10px;color:var(--accent);display:none;">●</span></div>
+    </div>
+    <div class="side-pane on" id="pane-score">
+      <div id="score-list"></div>
+      <div id="ans-panel">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;">정답</div>
+        <div id="ans-val">—</div>
+        <button class="btn ghost" style="font-size:11px;padding:5px 10px;margin-top:8px;width:100%;" onclick="toggleAnsReveal()">정답 보이기 / 숨기기</button>
+      </div>
+    </div>
+    <div class="side-pane" id="pane-chat">
+      <div id="chat-feed"></div>
+      <div id="host-chat-input">
+        <input type="text" id="host-msg" placeholder="공지 입력..." onkeydown="if(event.key==='Enter')sendHostMsg()">
+        <button class="btn y" style="padding:8px 12px;" onclick="sendHostMsg()">전송</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ JOIN SCREEN ══════════ -->
+<div id="s-join" class="screen center pad col">
+  <div class="logo">📸 사진 퀴즈 <em>라이브</em></div>
+  <div class="card col" style="gap:.75rem;width:100%;">
+    <h2 class="sec">방 참여하기</h2>
+    <div>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">방 코드</label>
+      <input type="text" id="join-code" placeholder="진행자에게 받은 코드 입력" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-size:1.2rem;font-weight:700;">
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">이름</label>
+      <input type="text" id="join-name" placeholder="내 이름 입력" maxlength="12">
+    </div>
+    <button class="btn y full" onclick="joinRoom()">입장하기 →</button>
+  </div>
+  <button class="btn ghost" style="font-size:12px;" onclick="showScreen('s-role')">← 뒤로</button>
+</div>
+
+<!-- ══════════ PLAYER GAME ══════════ -->
+<div id="s-player-game" class="screen">
+  <div id="pg-main">
+    <div id="pg-header">
+      <span id="pg-round-lbl" style="font-family:'Black Han Sans',sans-serif;color:var(--accent);font-size:1.1rem;">사진 1/10</span>
+      <div style="flex:1;height:4px;background:var(--surf2);border-radius:2px;overflow:hidden;">
+        <div id="pg-bar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:2px;"></div>
+      </div>
+      <span id="pg-pct" style="font-size:12px;color:var(--muted);">0%</span>
+    </div>
+    <div id="pg-photo-wrap">
+      <img id="pg-photo" src="" alt="" style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:var(--r);">
+      <div id="pg-grid" style="position:absolute;inset:0;display:grid;border-radius:var(--r);overflow:hidden;"></div>
+    </div>
+    <div id="pg-score-panel">
+      <div style="font-size:12px;color:var(--muted);">내 점수</div>
+      <div class="my-score" id="pg-my-score">0점</div>
+    </div>
+  </div>
+  <div id="pg-side">
+    <div style="padding:.75rem;border-bottom:1px solid var(--border);font-family:'Black Han Sans',sans-serif;font-size:.9rem;color:var(--accent);">💬 실시간 채팅</div>
+    <div id="pg-chat-feed"></div>
+    <div id="pg-chat-input">
+      <input type="text" id="pg-msg" placeholder="정답 입력..." maxlength="80" onkeydown="if(event.key==='Enter')sendPlayerMsg()">
+      <button class="btn y" style="padding:9px 14px;" onclick="sendPlayerMsg()">전송</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ VOTING SCREEN ══════════ -->
+<div id="s-voting" class="screen">
+  <div style="padding:1.5rem 1.5rem 0;">
+    <div class="vote-title">🗳️ 인기 사진 투표</div>
+    <p style="font-size:13px;color:var(--muted);">10장 중 마음에 드는 사진을 1·2·3위로 골라주세요!</p>
+    <div class="vote-hint" id="vote-hint-text">현재 선택: <span id="vote-sel-count">0</span>/3</div>
+  </div>
+  <div class="vote-grid" id="vote-grid" style="padding:0 1.5rem;"></div>
+  <div id="vote-status" style="margin:0 1.5rem;"></div>
+  <div style="padding:1.5rem;display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn y" style="flex:1;min-width:140px;font-size:1rem;" id="btn-submit-vote" onclick="submitVote()">투표 완료</button>
+    <span id="vote-submitted-msg" style="display:none;font-size:13px;color:var(--green);align-self:center;">✔ 투표 완료!</span>
+  </div>
+</div>
+
+<!-- ══════════ RESULTS SCREEN ══════════ -->
+<div id="s-results" class="screen" style="padding:1.5rem;overflow-y:auto;">
+  <div class="results-title">🏆 최종 결과</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-top:1rem;" id="results-grid">
+    <!-- Quiz scores -->
+    <div>
+      <h3 style="font-family:'Black Han Sans',sans-serif;color:var(--accent);margin-bottom:.75rem;font-size:1.1rem;">📝 퀴즈 스코어</h3>
+      <div class="podium-wrap" id="quiz-podium"></div>
+      <div class="result-table" id="quiz-table"></div>
+    </div>
+    <!-- Photo votes -->
+    <div>
+      <h3 style="font-family:'Black Han Sans',sans-serif;color:var(--accent);margin-bottom:.75rem;font-size:1.1rem;">📸 인기 사진 순위</h3>
+      <div class="podium-wrap" id="photo-podium" style="align-items:flex-end;"></div>
+      <div class="result-table" id="photo-table"></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:2rem;justify-content:center;flex-wrap:wrap;">
+    <button class="btn y" style="padding:13px 32px;font-size:1rem;" onclick="restartGame()">🔄 다시 하기</button>
+    <button class="btn ghost" style="padding:13px 32px;" onclick="showScreen('s-role')">처음으로</button>
+  </div>
+</div>
+
+<!-- ══════════ LOADING ══════════ -->
+<div id="loading"><div class="spinner"></div><p id="loading-msg">연결 중...</p></div>
+<div id="toast"></div>
+
+<script>
+// ──────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────
+const S = {
+  db: null, roomRef: null,
+  role: null, // 'host' | 'player'
+  roomCode: '',
+  playerId: localStorage.getItem('pqz_pid') || ('p' + Math.random().toString(36).slice(2,9)),
+  playerName: '',
+  gridSize: 6, speed: 1000,
+  currentPhotoIdx: 0,
+  revealedTiles: [],
+  totalTiles: 36,
+  photos: new Array(10).fill(null), // { data, answer }
+  autoTimer: null,
+  ansVisible: false,
+  editingSlot: null,
+  editingData: null,
+  myVotes: {}, // {photoIdx: rank}
+  chatListeners: [],
+};
+localStorage.setItem('pqz_pid', S.playerId);
+
+// ──────────────────────────────────────────────
+// SCREEN MANAGEMENT
+// ──────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+
+// ──────────────────────────────────────────────
+// CONFIG
+// ──────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // URL 파라미터로 초대 링크 통한 자동 입장 처리
+  const urlParams = new URLSearchParams(window.location.search);
+  const joinCfg = urlParams.get('j');
+  const joinRoomCode = urlParams.get('r');
+
+  if (joinCfg) {
+    // 참가자: 진행자가 보낸 초대 링크로 들어옴
+    try {
+      const cfg = JSON.parse(atob(joinCfg.replace(/-/g, '+').replace(/_/g, '/')));
+      if (cfg && cfg.url && cfg.key) {
+        S._autoJoinRoom = (joinRoomCode || '').toUpperCase();
+        S._autoJoinAsPlayer = true;
+        initSupabase(cfg);
+        return;
+      }
+    } catch(e) {
+      console.warn('초대 링크 파싱 실패', e);
+    }
+  }
+
+  const saved = loadConfig();
+  if (saved) { initSupabase(saved); return; }
+  showScreen('s-config');
+  buildPhotoSlots();
+});
+
+function loadConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem('pqz_cfg_sb') || 'null');
+    if (c && c.url && c.key) return c;
+  } catch(e) {}
+  return null;
+}
+
+function saveConfig() {
+  const cfg = {
+    url: v('cfg-url').replace(/\/+$/, ''),
+    key: v('cfg-key').trim(),
+  };
+  if (!cfg.url || !cfg.key) { toast('모든 항목을 입력해주세요'); return; }
+  if (!cfg.url.startsWith('http')) { toast('Project URL은 https://로 시작해야 해요'); return; }
+  localStorage.setItem('pqz_cfg_sb', JSON.stringify(cfg));
+  initSupabase(cfg);
+}
+
+function initSupabase(cfg) {
+  showLoading('Supabase 연결 중...');
+  try {
+    S.sb = supabase.createClient(cfg.url, cfg.key, {
+      realtime: { params: { eventsPerSecond: 20 } },
+    });
+    // 연결 테스트: rooms 테이블에 가벼운 쿼리
+    S.sb.from('rooms').select('code').limit(1).then(({ error }) => {
+      hideLoading();
+      if (error) {
+        toast('연결 실패: ' + (error.message || '확인 필요'));
+        showScreen('s-config');
+        return;
+      }
+      buildPhotoSlots();
+      if (S._autoJoinAsPlayer) {
+        S._autoJoinAsPlayer = false;
+        if (S._autoJoinRoom) {
+          const codeInput = document.getElementById('join-code');
+          if (codeInput) codeInput.value = S._autoJoinRoom;
+        }
+        showScreen('s-join');
+        setTimeout(() => {
+          const nameInput = document.getElementById('join-name');
+          if (nameInput) nameInput.focus();
+        }, 100);
+        return;
+      }
+      showScreen('s-role');
+    });
+  } catch(e) {
+    hideLoading();
+    toast('설정 오류: ' + e.message);
+    showScreen('s-config');
+  }
+}
+
+// ──────────────────────────────────────────────
+// FIREBASE-LIKE ADAPTER FOR SUPABASE
+// ──────────────────────────────────────────────
+// 기존 Firebase RTDB API (S.roomRef.child('a/b').on/once/set/update/push) 를
+// Supabase의 rooms 테이블 (단일 jsonb 컬럼 'data') 위에서 흉내냅니다.
+// 한 방 = 한 row. 모든 변경은 row 전체를 다시 업데이트.
+//
+// 동시성 주의: 두 클라이언트가 거의 동시에 update하면 한쪽이 덮어쓸 수 있음.
+// 게임 특성상(진행자 1명이 주로 쓰고, 참가자는 자기 영역만 씀) 큰 문제 없음.
+
+function makeRoomRef(roomCode) {
+  // 인메모리 캐시: realtime 채널이 받아오는 최신 row
+  const cache = { code: roomCode, data: null, listeners: new Map() };
+  let channel = null;
+
+  // 헬퍼: path를 키 배열로 ('players/abc/score' -> ['players','abc','score'])
+  const splitPath = p => (p || '').split('/').filter(Boolean);
+
+  // path를 따라가서 값 가져오기
+  const getAt = (obj, parts) => {
+    let cur = obj;
+    for (const k of parts) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = cur[k];
+    }
+    return cur;
+  };
+
+  // path를 따라가서 값 설정 (불변 복사 X — 그냥 mutate)
+  const setAt = (obj, parts, val) => {
+    if (parts.length === 0) return val; // 루트 교체
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const k = parts[i];
+      if (cur[k] == null || typeof cur[k] !== 'object') cur[k] = {};
+      cur = cur[k];
+    }
+    if (val === null || val === undefined) {
+      delete cur[parts[parts.length - 1]];
+    } else {
+      cur[parts[parts.length - 1]] = val;
+    }
+    return obj;
+  };
+
+  // 서버에서 한 번 읽기
+  const fetchRow = async () => {
+    const { data, error } = await S.sb
+      .from('rooms').select('data').eq('code', roomCode).maybeSingle();
+    if (error) throw error;
+    cache.data = (data && data.data) || null;
+    return cache.data;
+  };
+
+  // 서버에 row 통째로 쓰기 (upsert)
+  const writeRow = async (newData) => {
+    cache.data = newData;
+    const { error } = await S.sb
+      .from('rooms').upsert({ code: roomCode, data: newData, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  };
+
+  // 부분 업데이트: 현재 cache.data를 기반으로 path 위치를 바꾸고 통째로 쓰기
+  const patchPath = async (parts, newVal) => {
+    if (cache.data == null) await fetchRow();
+    const base = cache.data || {};
+    const updated = setAt(base, parts, newVal);
+    await writeRow(updated);
+  };
+
+  // realtime 채널 시작 (한 번만)
+  const ensureChannel = () => {
+    if (channel) return;
+    channel = S.sb.channel('room:' + roomCode)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'rooms', filter: 'code=eq.' + roomCode,
+      }, payload => {
+        const newData = payload.new && payload.new.data;
+        const oldData = cache.data;
+        cache.data = newData || null;
+        // 등록된 리스너에게 변경 통지
+        for (const [path, entry] of cache.listeners.entries()) {
+          const parts = splitPath(path);
+          const newVal = newData ? getAt(newData, parts) : undefined;
+          const oldVal = oldData ? getAt(oldData, parts) : undefined;
+          if (entry.event === 'value') {
+            // 값 자체가 바뀌었을 때만 (대략 비교: JSON 문자열)
+            if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+              entry.cb(makeSnapshot(newVal));
+            }
+          } else if (entry.event === 'child_added') {
+            // seenKeys로 추적해서 중복/누락 모두 방지
+            const newKeys = newVal && typeof newVal === 'object' ? Object.keys(newVal) : [];
+            for (const k of newKeys) {
+              if (!entry.seenKeys.has(k)) {
+                entry.seenKeys.add(k);
+                entry.cb(makeSnapshot(newVal[k], k));
+              }
+            }
+          }
+        }
+      })
+      .subscribe();
+  };
+
+  // Firebase의 DataSnapshot을 흉내내는 객체
+  function makeSnapshot(val, key) {
+    return {
+      val: () => (val === undefined ? null : val),
+      key: key || null,
+      exists: () => val !== null && val !== undefined,
+      forEach: (fn) => {
+        if (val && typeof val === 'object') {
+          for (const k of Object.keys(val)) {
+            fn(makeSnapshot(val[k], k));
+          }
+        }
+      },
+    };
+  }
+
+  // path별 ref 객체 생성 (재귀적으로 child를 지원)
+  function makeRefAt(pathStr) {
+    const parts = splitPath(pathStr);
+
+    return {
+      child(sub) {
+        const newPath = pathStr ? pathStr + '/' + sub : sub;
+        return makeRefAt(newPath);
+      },
+
+      async set(val) {
+        await patchPath(parts, val);
+      },
+
+      async update(updates) {
+        // updates는 { 'players/p1/score': 5, phase: 'voting' } 같은 평면 객체
+        if (cache.data == null) await fetchRow();
+        let base = cache.data || {};
+        for (const [k, v] of Object.entries(updates)) {
+          const subParts = [...parts, ...splitPath(k)];
+          base = setAt(base, subParts, v);
+        }
+        await writeRow(base);
+      },
+
+      async push(val) {
+        // 푸시 ID 생성 (시간 기반 + 랜덤)
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const subParts = [...parts, id];
+        await patchPath(subParts, val);
+        return { key: id };
+      },
+
+      async once(eventType) {
+        if (cache.data == null) await fetchRow();
+        const val = cache.data ? getAt(cache.data, parts) : null;
+        return makeSnapshot(val);
+      },
+
+      on(eventType, cb) {
+        ensureChannel();
+        const entry = { event: eventType, cb, seenKeys: new Set() };
+        cache.listeners.set(pathStr, entry);
+        // 처음 한 번 즉시 호출 (Firebase 동작과 동일)
+        (async () => {
+          if (cache.data == null) {
+            try { await fetchRow(); } catch(e) { console.warn(e); }
+          }
+          if (eventType === 'value') {
+            const val = cache.data ? getAt(cache.data, parts) : null;
+            cb(makeSnapshot(val));
+          } else if (eventType === 'child_added') {
+            const val = cache.data ? getAt(cache.data, parts) : null;
+            if (val && typeof val === 'object') {
+              for (const k of Object.keys(val)) {
+                entry.seenKeys.add(k);
+                cb(makeSnapshot(val[k], k));
+              }
+            }
+          }
+        })();
+      },
+
+      off() {
+        cache.listeners.delete(pathStr);
+      },
+
+      // child_added를 위한 limit 흉내 (실제로는 무시하고 그냥 전체 child_added로 동작)
+      limitToLast(n) { return this; },
+    };
+  }
+
+  const rootRef = makeRefAt('');
+  rootRef._cleanup = () => {
+    if (channel) { S.sb.removeChannel(channel); channel = null; }
+    cache.listeners.clear();
+  };
+  return rootRef;
+}
+
+// ──────────────────────────────────────────────
+// INVITE LINK / QR / SHARE
+// ──────────────────────────────────────────────
+function buildInviteLink(roomCode) {
+  const cfg = loadConfig();
+  if (!cfg) return null;
+  // base64url 인코딩 (URL 안전)
+  const json = JSON.stringify(cfg);
+  const b64 = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?j=${b64}&r=${roomCode}`;
+}
+
+function renderInviteQR(roomCode) {
+  const link = buildInviteLink(roomCode);
+  if (!link) return;
+  const canvas = document.getElementById('invite-qr');
+  if (!canvas || typeof QRCode === 'undefined') return;
+  QRCode.toCanvas(canvas, link, {
+    width: 220,
+    margin: 1,
+    color: { dark: '#0a0a18', light: '#ffffff' },
+  }, err => {
+    if (err) console.warn('QR 생성 실패', err);
+  });
+}
+
+function copyInviteLink() {
+  const code = document.getElementById('wait-code').textContent;
+  const link = buildInviteLink(code);
+  if (!link) { toast('링크 생성 실패'); return; }
+  navigator.clipboard.writeText(link).then(
+    () => toast('링크 복사 완료!'),
+    () => {
+      // 클립보드 API 실패 시 fallback
+      const ta = document.createElement('textarea');
+      ta.value = link;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('링크 복사 완료!'); }
+      catch(e) { toast('복사 실패: 직접 복사해주세요'); }
+      document.body.removeChild(ta);
+    }
+  );
+}
+
+function shareInviteLink() {
+  const code = document.getElementById('wait-code').textContent;
+  const link = buildInviteLink(code);
+  if (!link) { toast('링크 생성 실패'); return; }
+  const shareData = {
+    title: '📸 사진 퀴즈 라이브',
+    text: `방 코드 [${code}] - 사진 퀴즈에 참여하세요!`,
+    url: link,
+  };
+  if (navigator.share) {
+    navigator.share(shareData).catch(e => {
+      if (e.name !== 'AbortError') copyInviteLink();
+    });
+  } else {
+    // 공유 API 미지원 환경 (PC 브라우저 등)에서는 복사로 폴백
+    copyInviteLink();
+  }
+}
+
+// ──────────────────────────────────────────────
+// HOST SETUP
+// ──────────────────────────────────────────────
+function goHost() {
+  genRoomCode();
+  showScreen('s-host-setup');
+}
+
+function genRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const code = Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  document.getElementById('room-code-input').value = code;
+  document.getElementById('room-code-display').textContent = code;
+}
+
+document.getElementById('room-code-input').addEventListener('input', function() {
+  this.value = this.value.toUpperCase();
+  document.getElementById('room-code-display').textContent = this.value || '----';
+});
+
+function buildPhotoSlots() {
+  const wrap = document.getElementById('photo-slots');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'photo-slot' + (S.photos[i] ? ' filled' : '');
+    slot.id = 'slot-' + i;
+    slot.onclick = () => openPhotoModal(i);
+    const img = S.photos[i] ? `<img src="${S.photos[i].data}" alt="">` : '';
+    const ans = S.photos[i] ? `<div class="slot-answer">${S.photos[i].answer || '정답 없음'}</div>` : '';
+    slot.innerHTML = `
+      ${img}
+      ${S.photos[i] ? '' : `<div class="slot-num">${i+1}</div><div class="slot-hint">클릭하여 추가</div>`}
+      <div class="slot-check">✓</div>
+      ${ans}
+    `;
+    wrap.appendChild(slot);
+  }
+}
+
+function openPhotoModal(i) {
+  S.editingSlot = i;
+  S.editingData = S.photos[i] ? { ...S.photos[i] } : { data: null, answer: '' };
+  document.getElementById('pm-num').textContent = i + 1;
+  document.getElementById('pm-answer').value = S.editingData.answer || '';
+  const preview = document.getElementById('pm-preview');
+  const placeholder = document.getElementById('pm-placeholder');
+  if (S.editingData.data) {
+    preview.src = S.editingData.data;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    preview.style.display = 'none';
+    placeholder.style.display = 'flex';
+  }
+  document.getElementById('photo-modal').classList.add('on');
+}
+
+function closePhotoModal() {
+  document.getElementById('photo-modal').classList.remove('on');
+}
+
+function handlePhotoFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  compressImage(file, 600, 0.65, data => {
+    S.editingData.data = data;
+    const preview = document.getElementById('pm-preview');
+    preview.src = data;
+    preview.style.display = 'block';
+    document.getElementById('pm-placeholder').style.display = 'none';
+  });
+}
+
+function compressImage(file, maxW, quality, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = h * maxW / w; w = maxW; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function savePhotoSlot() {
+  if (!S.editingData.data) { toast('사진을 선택해주세요'); return; }
+  S.editingData.answer = v('pm-answer');
+  S.photos[S.editingSlot] = { ...S.editingData };
+  buildPhotoSlots();
+  closePhotoModal();
+}
+
+async function createRoom() {
+  const code = v('room-code-input').toUpperCase();
+  if (code.length < 2) { toast('방 코드를 입력해주세요'); return; }
+  const filled = S.photos.filter(Boolean).length;
+  if (filled === 0) { toast('사진을 최소 1장 업로드해주세요'); return; }
+
+  S.roomCode = code;
+  S.gridSize = parseInt(document.getElementById('grid-slider').value);
+  S.speed = parseInt(document.getElementById('speed-slider').value);
+  S.role = 'host';
+
+  showLoading('방 생성 중...');
+  try {
+    S.roomRef = makeRoomRef(code);
+
+    // Prepare photo data (no undefined values)
+    const photosData = {};
+    for (let i = 0; i < 10; i++) {
+      if (S.photos[i]) {
+        photosData[i] = { data: S.photos[i].data, answer: S.photos[i].answer || '' };
+      }
+    }
+
+    await S.roomRef.set({
+      phase: 'waiting',
+      currentPhoto: 0,
+      revealedTiles: [],
+      gridSize: S.gridSize,
+      speed: S.speed,
+      photos: photosData,
+      players: {},
+      chat: {},
+      votes: {},
+      hostId: S.playerId,
+      createdAt: Date.now(),
+    });
+
+    hideLoading();
+    document.getElementById('wait-code').textContent = code;
+    showScreen('s-waiting');
+    renderInviteQR(code);
+    listenWaiting();
+  } catch(e) {
+    hideLoading();
+    toast('오류: ' + e.message);
+  }
+}
+
+function listenWaiting() {
+  S.roomRef.child('players').on('value', snap => {
+    const players = snap.val() || {};
+    const names = Object.values(players).map(p => p.name);
+    const list = document.getElementById('player-join-list');
+    list.innerHTML = names.map(n => `<div class="join-chip">${n}</div>`).join('');
+    document.getElementById('join-count').textContent =
+      names.length ? `${names.length}명 참여 중` : '아직 아무도 없어요';
+  });
+}
+
+// ──────────────────────────────────────────────
+// HOST GAME
+// ──────────────────────────────────────────────
+function startRound(photoIdx) {
+  S.currentPhotoIdx = photoIdx;
+  S.revealedTiles = [];
+  S.totalTiles = S.gridSize * S.gridSize;
+
+  if (S.autoTimer) { clearInterval(S.autoTimer); S.autoTimer = null; }
+
+  S.roomRef.update({
+    phase: 'playing',
+    currentPhoto: photoIdx,
+    revealedTiles: [],
+  });
+
+  showScreen('s-host-game');
+  buildHostGameUI();
+  listenHostGame();
+}
+
+function buildHostGameUI() {
+  const photo = S.photos[S.currentPhotoIdx];
+  if (photo) document.getElementById('hg-photo').src = photo.data;
+
+  S.ansVisible = false;
+  document.getElementById('ans-val').textContent = '—';
+  document.getElementById('hg-round-lbl').textContent = `사진 ${S.currentPhotoIdx + 1}/${S.photos.filter(Boolean).length}`;
+  document.getElementById('btn-auto').textContent = '⏩ 자동 공개';
+  document.getElementById('btn-auto').classList.remove('r');
+  buildTileGrid('hg-grid', S.gridSize);
+  updateProgress('hg-bar', 'hg-pct', 0, S.totalTiles);
+  buildPhotoNav();
+  renderScoreboard();
+}
+
+function buildPhotoNav() {
+  const nav = document.getElementById('hg-nav');
+  nav.innerHTML = '';
+  const filled = S.photos.map((p, i) => ({p, i})).filter(x => x.p);
+  filled.forEach(({p, i}) => {
+    const img = document.createElement('img');
+    img.className = 'photo-thumb' + (i === S.currentPhotoIdx ? ' active' : '');
+    img.src = p.data;
+    img.alt = i + 1;
+    img.onclick = () => switchPhoto(i);
+    nav.appendChild(img);
+  });
+}
+
+function buildTileGrid(gridId, size) {
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+  grid.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+  for (let i = 0; i < size * size; i++) {
+    const t = document.createElement('div');
+    t.className = 'tile';
+    t.dataset.i = i;
+    if (gridId === 'hg-grid') t.onclick = () => hostRevealTile(i);
+    grid.appendChild(t);
+  }
+}
+
+function updateProgress(barId, pctId, revealed, total) {
+  const pct = total ? Math.round(revealed / total * 100) : 0;
+  document.getElementById(barId).style.width = pct + '%';
+  document.getElementById(pctId).textContent = pct + '%';
+}
+
+function listenHostGame() {
+  // Chat
+  const chatRef = S.roomRef.child('chat');
+  chatRef.off();
+  chatRef.limitToLast(100).on('child_added', snap => {
+    const msg = snap.val();
+    if (msg) appendChat('chat-feed', msg);
+  });
+
+  // Players (for scoreboard)
+  S.roomRef.child('players').on('value', snap => {
+    const data = snap.val() || {};
+    S._players = data;
+    renderScoreboard();
+  });
+}
+
+function hostRevealTile(i) {
+  if (S.revealedTiles.includes(i)) return;
+  S.revealedTiles.push(i);
+  S.roomRef.update({ revealedTiles: S.revealedTiles });
+  applyRevealedTiles('hg-grid', S.revealedTiles);
+  updateProgress('hg-bar', 'hg-pct', S.revealedTiles.length, S.totalTiles);
+}
+
+function getUnrevealedTiles() {
+  const all = Array.from({length: S.totalTiles}, (_, i) => i);
+  return all.filter(i => !S.revealedTiles.includes(i));
+}
+
+function revealOneTile() {
+  const rem = getUnrevealedTiles();
+  if (!rem.length) return;
+  const pick = rem[Math.floor(Math.random() * rem.length)];
+  hostRevealTile(pick);
+}
+
+function revealAllTiles() {
+  stopAuto();
+  const all = Array.from({length: S.totalTiles}, (_, i) => i);
+  S.revealedTiles = all;
+  S.roomRef.update({ revealedTiles: S.revealedTiles });
+  applyRevealedTiles('hg-grid', S.revealedTiles);
+  updateProgress('hg-bar', 'hg-pct', S.totalTiles, S.totalTiles);
+}
+
+function applyRevealedTiles(gridId, revealed) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.querySelectorAll('.tile').forEach(t => {
+    const i = parseInt(t.dataset.i);
+    if (revealed.includes(i)) t.classList.add('on');
+    else t.classList.remove('on');
+  });
+}
+
+function toggleAuto() {
+  if (S.autoTimer) {
+    stopAuto();
+  } else {
+    const btn = document.getElementById('btn-auto');
+    btn.textContent = '⏹ 중지';
+    btn.classList.add('r');
+    S.autoTimer = setInterval(() => {
+      if (!getUnrevealedTiles().length) { stopAuto(); return; }
+      revealOneTile();
+    }, S.speed);
+  }
+}
+
+function stopAuto() {
+  if (S.autoTimer) { clearInterval(S.autoTimer); S.autoTimer = null; }
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = '⏩ 자동 공개';
+  btn.classList.remove('r');
+}
+
+function switchPhoto(i) {
+  stopAuto();
+  startRound(i);
+}
+
+function prevPhoto() {
+  const filled = S.photos.map((p, i) => ({p, i})).filter(x => x.p);
+  const cur = filled.findIndex(x => x.i === S.currentPhotoIdx);
+  if (cur > 0) switchPhoto(filled[cur - 1].i);
+}
+
+function nextPhoto() {
+  const filled = S.photos.map((p, i) => ({p, i})).filter(x => x.p);
+  const cur = filled.findIndex(x => x.i === S.currentPhotoIdx);
+  if (cur < filled.length - 1) switchPhoto(filled[cur + 1].i);
+  else toast('마지막 사진이에요! 투표로 이동하려면 → 버튼을 눌러주세요');
+}
+
+function renderScoreboard() {
+  const players = S._players || {};
+  const sorted = Object.entries(players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+  const list = document.getElementById('score-list');
+  if (!list) return;
+  list.innerHTML = sorted.map(([id, p], i) => `
+    <div class="score-row" id="sr-${id}">
+      <div class="rank-dot ${i===0?'r1':i===1?'r2':i===2?'r3':''}">${i+1}</div>
+      <div style="flex:1;"><div class="sname">${p.name}</div><div class="sscore">${p.score||0}점</div></div>
+      <div class="sbtn-wrap">
+        <button class="sbtn p" onclick="changeScore('${id}',1)">＋</button>
+        <button class="sbtn m" onclick="changeScore('${id}',-1)">－</button>
+      </div>
+    </div>
+  `).join('') || '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:13px;">참여자를 기다리는 중...</div>';
+}
+
+function changeScore(playerId, delta) {
+  const p = (S._players || {})[playerId];
+  if (!p) return;
+  const newScore = Math.max(0, (p.score || 0) + delta);
+  S.roomRef.child('players/' + playerId + '/score').set(newScore);
+  const row = document.getElementById('sr-' + playerId);
+  if (row) {
+    row.classList.add(delta > 0 ? 'flash-g' : 'flash-r');
+    setTimeout(() => row.classList.remove('flash-g','flash-r'), 500);
+  }
+  if (delta > 0) showScoreFloat(p.name);
+}
+
+function showScoreFloat(name) {
+  const el = document.createElement('div');
+  el.className = 'score-float';
+  el.textContent = '+1 ' + name;
+  el.style.left = (20 + Math.random()*40) + '%';
+  el.style.top = '50%';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function toggleAnsReveal() {
+  S.ansVisible = !S.ansVisible;
+  const photo = S.photos[S.currentPhotoIdx];
+  document.getElementById('ans-val').textContent =
+    S.ansVisible ? (photo && photo.answer ? photo.answer : '(정답 없음)') : '—';
+}
+
+// Tabs
+function switchTab(tab) {
+  ['score','chat'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('on', t===tab);
+    document.getElementById('pane-'+t).classList.toggle('on', t===tab);
+  });
+  if (tab === 'chat') document.getElementById('chat-badge').style.display = 'none';
+}
+
+// Chat
+function appendChat(feedId, msg) {
+  const feed = document.getElementById(feedId);
+  if (!feed) return;
+  if (msg.type === 'system') {
+    const div = document.createElement('div');
+    div.className = 'chat-system';
+    div.textContent = msg.text;
+    feed.appendChild(div);
+  } else {
+    const div = document.createElement('div');
+    div.className = 'chat-msg';
+    const initials = (msg.name||'?')[0].toUpperCase();
+    div.innerHTML = `
+      <div class="chat-avatar">${initials}</div>
+      <div class="chat-body">
+        <div class="cname">${msg.name}</div>
+        <div class="ctext${msg.isHost?' host-msg':''}">${escHtml(msg.text)}</div>
+      </div>
+    `;
+    feed.appendChild(div);
+    if (feedId === 'chat-feed' && document.getElementById('pane-chat').className.indexOf('on') === -1) {
+      document.getElementById('chat-badge').style.display = 'inline';
+    }
+  }
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function sendHostMsg() {
+  const text = v('host-msg').trim();
+  if (!text) return;
+  S.roomRef.child('chat').push({ name: '진행자', text, isHost: true, time: Date.now() });
+  document.getElementById('host-msg').value = '';
+}
+
+// Voting
+function goVoting() {
+  stopAuto();
+  S.roomRef.update({ phase: 'voting' });
+  showVotingScreen();
+}
+
+// ──────────────────────────────────────────────
+// JOIN / PLAYER
+// ──────────────────────────────────────────────
+function goJoin() { showScreen('s-join'); }
+
+async function joinRoom() {
+  const code = v('join-code').toUpperCase().trim();
+  const name = v('join-name').trim();
+  if (!code) { toast('방 코드를 입력하세요'); return; }
+  if (!name) { toast('이름을 입력하세요'); return; }
+
+  showLoading('입장 중...');
+  try {
+    S.roomRef = makeRoomRef(code);
+    const snap = await S.roomRef.once('value');
+    if (!snap.exists()) { hideLoading(); toast('방을 찾을 수 없어요'); return; }
+
+    S.roomCode = code;
+    S.playerName = name;
+    S.role = 'player';
+
+    // Load room data
+    const data = snap.val();
+    S.gridSize = data.gridSize || 6;
+    S.totalTiles = S.gridSize * S.gridSize;
+    S.photos = new Array(10).fill(null);
+    if (data.photos) {
+      Object.entries(data.photos).forEach(([i, p]) => {
+        S.photos[parseInt(i)] = p;
+      });
+    }
+
+    // Register player
+    await S.roomRef.child('players/' + S.playerId).set({ name, score: 0 });
+
+    // Send join message
+    await S.roomRef.child('chat').push({ name, text: name + '님이 입장했어요!', type: 'system', time: Date.now() });
+
+    hideLoading();
+    listenPlayerGame(data);
+  } catch(e) {
+    hideLoading();
+    toast('오류: ' + e.message);
+  }
+}
+
+function listenPlayerGame(initialData) {
+  // Listen to game state
+  S.roomRef.on('value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    const phase = data.phase;
+
+    if (phase === 'waiting') {
+      // waiting screen for players
+    } else if (phase === 'playing') {
+      if (document.getElementById('s-player-game').className.indexOf('on') === -1) {
+        showScreen('s-player-game');
+        buildPlayerGameUI(data);
+      }
+      // Sync tiles
+      const revealed = data.revealedTiles || [];
+      S.currentPhotoIdx = data.currentPhoto || 0;
+      const photo = S.photos[S.currentPhotoIdx];
+      if (photo) document.getElementById('pg-photo').src = photo.data;
+      document.getElementById('pg-round-lbl').textContent = `사진 ${S.currentPhotoIdx + 1}`;
+
+      // Rebuild grid if photo changed
+      const grid = document.getElementById('pg-grid');
+      if (grid.children.length !== S.gridSize * S.gridSize) {
+        buildTileGrid('pg-grid', S.gridSize);
+      }
+      applyRevealedTiles('pg-grid', revealed);
+      const total = S.gridSize * S.gridSize;
+      updateProgress('pg-bar', 'pg-pct', revealed.length, total);
+    } else if (phase === 'voting') {
+      showVotingScreen();
+    } else if (phase === 'results') {
+      showResultsScreen(data);
+    }
+
+    // Update my score
+    if (data.players && data.players[S.playerId]) {
+      const sc = data.players[S.playerId].score || 0;
+      const el = document.getElementById('pg-my-score');
+      if (el) el.textContent = sc + '점';
+    }
+  });
+
+  // Chat listener
+  S.roomRef.child('chat').limitToLast(100).on('child_added', snap => {
+    const msg = snap.val();
+    if (msg) {
+      appendChat('pg-chat-feed', msg);
+    }
+  });
+}
+
+function buildPlayerGameUI(data) {
+  S.currentPhotoIdx = data.currentPhoto || 0;
+  S.gridSize = data.gridSize || 6;
+  S.totalTiles = S.gridSize * S.gridSize;
+  const photo = S.photos[S.currentPhotoIdx];
+  if (photo) document.getElementById('pg-photo').src = photo.data;
+  buildTileGrid('pg-grid', S.gridSize);
+}
+
+function sendPlayerMsg() {
+  const text = v('pg-msg').trim();
+  if (!text || !S.roomRef) return;
+  S.roomRef.child('chat').push({ name: S.playerName, text, time: Date.now() });
+  document.getElementById('pg-msg').value = '';
+}
+
+// ──────────────────────────────────────────────
+// VOTING
+// ──────────────────────────────────────────────
+function showVotingScreen() {
+  showScreen('s-voting');
+  S.myVotes = {};
+  const grid = document.getElementById('vote-grid');
+  grid.innerHTML = '';
+  const filled = S.photos.map((p, i) => ({p, i})).filter(x => x.p);
+
+  // Listen vote counts
+  if (S.roomRef) {
+    S.roomRef.child('votes').on('value', snap => {
+      const votes = snap.val() || {};
+      updateVoteDisplay(votes, filled);
+    });
+  }
+
+  filled.forEach(({p, i}) => {
+    const div = document.createElement('div');
+    div.className = 'vote-photo';
+    div.id = 'vp-' + i;
+    div.innerHTML = `<img src="${p.data}" alt="사진 ${i+1}"><div class="vote-badge"></div><div class="vote-num">${i+1}</div>`;
+    div.onclick = () => castVote(i, div, filled);
+    grid.appendChild(div);
+  });
+
+  // Status
+  if (S.role === 'host') {
+    document.getElementById('vote-status').innerHTML = `<strong>진행자</strong> — 참여자들이 투표 중이에요. 모두 완료되면 결과 보기를 눌러주세요.<br><button class="btn g" style="margin-top:10px;" onclick="calcResults()">결과 보기 →</button>`;
+    document.getElementById('btn-submit-vote').style.display = 'none';
+  } else {
+    document.getElementById('vote-status').textContent = '1·2·3위 사진을 순서대로 선택하세요';
+  }
+}
+
+function castVote(photoIdx, el, filled) {
+  if (S.role === 'host') return;
+  // Already voted at this rank?
+  const ranks = [1, 2, 3];
+  const usedRanks = Object.values(S.myVotes);
+  const existingRank = S.myVotes[photoIdx];
+
+  if (existingRank !== undefined) {
+    // Deselect
+    delete S.myVotes[photoIdx];
+    el.className = 'vote-photo';
+    el.querySelector('.vote-badge').textContent = '';
+  } else {
+    if (usedRanks.length >= 3) { toast('이미 3장을 선택했어요'); return; }
+    const nextRank = ranks.find(r => !usedRanks.includes(r));
+    S.myVotes[photoIdx] = nextRank;
+    el.className = `vote-photo v${nextRank}`;
+    el.querySelector('.vote-badge').textContent = nextRank + '위';
+  }
+  document.getElementById('vote-sel-count').textContent = Object.keys(S.myVotes).length;
+}
+
+function updateVoteDisplay(votes, filled) {
+  // Calculate total vote points per photo (1st=3pts, 2nd=2pts, 3rd=1pt)
+  const scores = {};
+  Object.values(votes).forEach(v => {
+    Object.entries(v).forEach(([rank, photoIdx]) => {
+      scores[photoIdx] = (scores[photoIdx] || 0) + (4 - parseInt(rank));
+    });
+  });
+  const voterCount = Object.keys(votes).length;
+  const totalPlayers = Object.keys(S._players || {}).length || 1;
+  const status = document.getElementById('vote-status');
+  if (S.role === 'host' && status) {
+    status.innerHTML = `<strong>${voterCount}/${totalPlayers}명</strong> 투표 완료<br><button class="btn g" style="margin-top:10px;" onclick="calcResults()">결과 보기 →</button>`;
+  }
+}
+
+async function submitVote() {
+  if (Object.keys(S.myVotes).length < 1) { toast('최소 1장은 선택해주세요'); return; }
+  // Convert {photoIdx: rank} to {rank: photoIdx}
+  const voteData = {};
+  Object.entries(S.myVotes).forEach(([photo, rank]) => {
+    voteData[rank] = parseInt(photo);
+  });
+  await S.roomRef.child('votes/' + S.playerId).set(voteData);
+  document.getElementById('btn-submit-vote').style.display = 'none';
+  document.getElementById('vote-submitted-msg').style.display = 'inline';
+  toast('투표 완료! 결과를 기다려주세요 🎉');
+}
+
+// ──────────────────────────────────────────────
+// RESULTS
+// ──────────────────────────────────────────────
+async function calcResults() {
+  showLoading('결과 집계 중...');
+  await S.roomRef.update({ phase: 'results' });
+  const snap = await S.roomRef.once('value');
+  hideLoading();
+  showResultsScreen(snap.val());
+}
+
+function showResultsScreen(data) {
+  showScreen('s-results');
+
+  // Quiz scores
+  const players = Object.entries(data.players || {}).sort((a,b) => (b[1].score||0) - (a[1].score||0));
+  renderPodium('quiz-podium', players.map(([,p]) => ({name: p.name, val: (p.score||0)+'점'})));
+  document.getElementById('quiz-table').innerHTML = players.map(([,p], i) =>
+    `<div class="result-row"><div class="result-rank">${i+1}위</div><div class="result-name">${p.name}</div><div class="result-val">${p.score||0}점</div></div>`
+  ).join('');
+
+  // Photo votes
+  const votes = data.votes || {};
+  const photoScores = {};
+  Object.values(votes).forEach(v => {
+    Object.entries(v).forEach(([rank, photoIdx]) => {
+      photoScores[photoIdx] = (photoScores[photoIdx] || 0) + (4 - parseInt(rank));
+    });
+  });
+  const photoRanking = Object.entries(photoScores)
+    .sort((a,b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([idx, score]) => ({ idx: parseInt(idx), score }));
+
+  const photoPodiumData = photoRanking.slice(0,3).map(x => ({
+    img: S.photos[x.idx] ? S.photos[x.idx].data : null,
+    name: `사진 ${x.idx+1}`,
+    val: x.score + '점'
+  }));
+  renderPhotoPodium('photo-podium', photoPodiumData);
+
+  document.getElementById('photo-table').innerHTML = photoRanking.map((x, i) => {
+    const photo = S.photos[x.idx];
+    return `<div class="result-row">
+      <div class="result-rank">${i+1}위</div>
+      ${photo ? `<img class="result-thumb" src="${photo.data}" alt="">` : ''}
+      <div class="result-name">사진 ${x.idx+1}${photo && photo.answer ? ' — '+photo.answer : ''}</div>
+      <div class="result-val">${x.score}점</div>
+    </div>`;
+  }).join('') || '<div class="result-row"><div class="result-name" style="color:var(--muted);">투표 데이터 없음</div></div>';
+}
+
+function renderPodium(id, items) {
+  const el = document.getElementById(id);
+  if (items.length === 0) { el.innerHTML = ''; return; }
+  const order = items.length === 1 ? [items[0]] : items.length === 2 ? [items[1], items[0]] : [items[1], items[0], items[2]];
+  const classes = items.length === 1 ? ['pb1'] : items.length === 2 ? ['pb2','pb1'] : ['pb2','pb1','pb3'];
+  const medals = ['🥈','🥇','🥉'];
+  el.innerHTML = order.map((p, i) => `
+    <div class="podium-col">
+      <div class="podium-block ${classes[i]}">${medals[i]}</div>
+      <div class="podium-name">${p.name}</div>
+      <div class="podium-score">${p.val}</div>
+    </div>`).join('');
+}
+
+function renderPhotoPodium(id, items) {
+  const el = document.getElementById(id);
+  if (!items.length) { el.innerHTML = ''; return; }
+  const order = items.length === 1 ? [items[0]] : items.length === 2 ? [items[1], items[0]] : [items[1], items[0], items[2]];
+  const heights = ['130px','180px','100px'];
+  const medals = ['🥈','🥇','🥉'];
+  el.innerHTML = order.map((p, i) => `
+    <div class="podium-col">
+      ${p.img ? `<img src="${p.img}" style="width:100%;height:${heights[i]};object-fit:cover;border-radius:8px 8px 0 0;">` : `<div style="height:${heights[i]};background:var(--surf2);border-radius:8px 8px 0 0;"></div>`}
+      <div class="podium-name">${medals[i]} ${p.name}</div>
+      <div class="podium-score">${p.val}</div>
+    </div>`).join('');
+}
+
+async function restartGame() {
+  if (S.role !== 'host') { showScreen('s-player-game'); return; }
+  // Reset scores
+  const players = S._players || {};
+  const updates = {};
+  Object.keys(players).forEach(id => { updates[`players/${id}/score`] = 0; });
+  updates.votes = {};
+  updates.phase = 'waiting';
+  updates.currentPhoto = 0;
+  updates.revealedTiles = [];
+  await S.roomRef.update(updates);
+  S.photos.forEach((p, i) => { if (p) S.photos[i] = p; });
+  showScreen('s-waiting');
+  listenWaiting();
+}
+
+// ──────────────────────────────────────────────
+// UTILS
+// ──────────────────────────────────────────────
+function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading').classList.add('on');
+}
+function hideLoading() { document.getElementById('loading').classList.remove('on'); }
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 2500);
+}
+
+// Photo modal click outside
+document.getElementById('photo-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('photo-modal')) closePhotoModal();
+});
+</script>
+</body>
+</html>
